@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Cisco DHCP Option 43 Generator (Wi-Fi 7 APs - FOM)</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; max-width:900px; margin:auto; font-size:16px; }
+
+    h2 { margin-bottom:8px; font-size:26px; }
+    p.lead { margin-bottom:20px; font-size:16px; }
+
+    .row { display:flex; align-items:center; margin-bottom:12px; gap:10px; }
+
+    .label { width:90px; font-weight:bold; }
+    input { padding:10px; width:220px; font-size:16px; }
+
+    /* 「Mode」プルダウンの見た目の調整 */
+    select { padding:10px; width:244px; font-size:16px; }
+
+    .hex-preview { font-family: monospace; font-size:15px; }
+
+    .actions { margin-top:10px; }
+    button { padding:10px 18px; font-size:15px; }
+
+    pre { background:#fff; border:1px solid #ccc; padding:12px; margin-top:15px; font-size:18px; }
+
+    #output {
+      border: 2px solid #1565c0;
+      background: #f8fbff;
+    }
+
+    .section { margin-top:28px; }
+
+    .error { color:#d32f2f; margin-top:10px; white-space: pre-line; }
+
+    /* colors */
+    .mode-catalyst { color:#1565c0; font-weight:bold; }
+    .mode-meraki { color:#6a1b9a; font-weight:bold; }
+
+    .c-type { color:#1565c0; font-weight:bold; }
+    .c-length { color:#2e7d32; font-weight:bold; }
+    .c-wlc1 { color:#d32f2f; font-weight:bold; }
+    .c-wlc2 { color:#ef6c00; font-weight:bold; }
+    .c-wlc3 { color:#6a1b9a; font-weight:bold; }
+    .c-mode { color:#00838f; font-weight:bold; }
+
+    table { border-collapse: collapse; margin-top:10px; }
+    th, td { border:1px solid #ccc; padding:8px 12px; font-size:16px; }
+  </style>
+</head>
+<body>
+
+<h2>Cisco DHCP Option 43 Generator (Wi-Fi 7 APs - FOM)</h2>
+<p class="lead">Cisco Wi-Fi 7 AP (CW917xシリーズ)向けのFast Offline Migration (FOM) 用DHCP Option 43のHEX値を生成します。</p>
+
+<div class="row">
+  <div class="label c-wlc1">WLC #1</div>
+  <input type="text" id="wlc1" value="10.0.255.101" oninput="updateHex(1)">
+  <span id="hex1" class="hex-preview c-wlc1"></span>
+</div>
+
+<div class="row">
+  <div class="label c-wlc2">WLC #2</div>
+  <input type="text" id="wlc2" value="172.16.32.102" oninput="updateHex(2)">
+  <span id="hex2" class="hex-preview c-wlc2"></span>
+</div>
+
+<div class="row">
+  <div class="label c-wlc3">WLC #3</div>
+  <input type="text" id="wlc3" value="192.168.128.103" oninput="updateHex(3)">
+  <span id="hex3" class="hex-preview c-wlc3"></span>
+</div>
+
+<div class="row">
+  <div class="label">Mode</div>
+  <select id="mode">
+    <option value="02" selected>Catalyst Mode (WLC Mode)</option>
+    <option value="01">Meraki Mode</option>
+  </select>
+  <span id="modePreview" class="hex-preview mode-catalyst">HEX: 02</span>
+</div>
+<div id="modeMessage" style="margin:4px 0 14px 100px; font-size:14px; color:#555;"></div>
+
+<div class="actions">
+  <button onclick="run()">Generate</button>
+  <button onclick="clearInputs()">Clear</button>
+</div>
+
+<div id="error" class="error"></div>
+
+<div class="section">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <b>DHCP Option 43 (HEX)</b>
+  </div>
+
+  <div style="margin-top:8px; font-size:13px; color:#555;">
+    生成された値をそのままDHCP Option 43の設定値に使用できます。
+  </div>
+
+  <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+    <pre id="output" style="font-size:18px; flex:1; height:48px; display:flex; align-items:center; margin:0;"></pre>
+    <button onclick="copyResult()" style="height:48px;">Copy</button>
+  </div>
+
+  <div id="copyMsg" style="font-size:16px; color:#2e7d32; margin-top:6px;"></div>
+</div>
+
+<div class="section">
+  <h3>説明</h3>
+  <ul>
+    <li>Cisco Wi-Fi 7 AP (CW917xシリーズ)がFast Offline Migration (FOM)を利用してCatalyst Mode (WLC Mode)またはMeraki Modeへ移行するためのDHCP Option 43を生成するツールです。</li>
+    <li>入力されたWLCのIPv4アドレスを16進数 (HEX)形式へ変換し、F3 + Length + WLC IP + Modeの形式で出力します。</li>
+    <li>ModeはCatalyst Mode (WLC Mode)が <b>02</b>、Meraki Modeが <b>01</b> です。</li>
+    <li>Meraki ModeではWLCのIPv4アドレスを入力せずに <b>f30101</b> を生成できます。Catalyst Mode (WLC Mode)ではWLCのIPv4アドレスが1つ以上必要です。</li>
+    <li>本ツールはクライアント側のJavaScriptによって動作しており、外部のサーバーには送信を行いません。</li>
+    <li>DHCP Option 43のFOMはWi-Fi 7 APのDay 0におけるCatalyst / Meraki Modeの自動変換に使用できます。</li>
+  </ul>
+</div>
+
+<div class="section">
+  <h3>DHCP Option 43のフォーマット</h3>
+
+<pre>
+<span class="c-type">&lt;Type&gt;</span><span class="c-length">&lt;Length&gt;</span><span class="c-wlc1">&lt;WLC #1&gt;</span><span class="c-wlc2">&lt;WLC #2&gt;</span><span class="c-wlc3">&lt;WLC #3&gt;</span><span class="c-mode">&lt;Mode&gt;</span>
+</pre>
+
+<table>
+  <tr><th>項目</th><th>値の例</th><th>説明</th></tr>
+  <tr><td class="c-type">Type</td><td>f3</td><td>Fast Offline Migration用。DHCP Option 43のサブオプションコード243 (0xf3)で固定</td></tr>
+  <tr><td class="c-length">Length</td><td>0d</td><td>4 Bytes × WLCの数 + 1 Byte (1台: 0x05, 2台: 0x09, 3台: 0x0d)</td></tr>
+  <tr><td class="c-wlc1">WLC #1</td><td>0a00ff65</td><td>WLC #1のIPv4アドレスのHEX形式 (例示IPアドレス: 10.0.255.101)</td></tr>
+  <tr><td class="c-wlc2">WLC #2</td><td>ac102066</td><td>WLC #2のIPv4アドレスのHEX形式 (例示IPアドレス: 172.16.32.102)</td></tr>
+  <tr><td class="c-wlc3">WLC #3</td><td>c0a88067</td><td>WLC #3のIPv4アドレスのHEX形式 (例示IPアドレス: 192.168.128.103)</td></tr>
+  <tr><td class="c-mode">Mode</td><td>02</td><td>01 = Meraki Mode、02 = Catalyst Mode (WLC Mode)</td></tr>
+</table>
+</div>
+
+<script>
+let copyValue = '';
+
+function isValidIPv4(ip) {
+  const regex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  return regex.test(ip);
+}
+
+function ipToHex(ip) {
+  return ip.split('.')
+    .map(o => parseInt(o, 10).toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function updateHex(index) {
+  const ip = document.getElementById(`wlc${index}`).value.trim();
+  const el = document.getElementById(`hex${index}`);
+
+  if (isValidIPv4(ip)) {
+    el.innerText = "HEX: " + ipToHex(ip);
+  } else {
+    el.innerText = '';
+  }
+}
+
+function updateModePreview() {
+  const mode = document.getElementById('mode');
+  const preview = document.getElementById('modePreview');
+
+  preview.innerText = "HEX: " + mode.value;
+  preview.className = "hex-preview " +
+    (mode.value === "02" ? "mode-catalyst" : "mode-meraki");
+
+  const message = document.getElementById("modeMessage");
+  if (mode.value === "01") {
+    message.innerText = "※ Meraki Modeを指定した場合、WLCのIPv4アドレスの指定は不要です。";
+  } else {
+    message.innerText = "※ Catalyst Mode (WLC Mode)では、WLCのIPv4アドレスを1台以上指定してください。";
+  }
+}
+
+function generateOption43(ipList, mode) {
+  const value = ipList.map(ipToHex).join('');
+  const length = (value.length / 2 + 1).toString(16).padStart(2, '0');
+
+  return {
+    raw: `f3${length}${value}${mode}`,
+    parts: ipList.map(ipToHex),
+    length,
+    mode
+  };
+}
+
+function run() {
+  const inputs = [
+    document.getElementById('wlc1').value.trim(),
+    document.getElementById('wlc2').value.trim(),
+    document.getElementById('wlc3').value.trim()
+  ];
+
+  const mode = document.getElementById('mode').value;
+  const errorDiv = document.getElementById('error');
+  const output = document.getElementById('output');
+  errorDiv.innerText = '';
+  output.innerHTML = '';
+  const validIPs = [];
+  const errors = [];
+
+  for (let i = 0; i < inputs.length; i++) {
+    const ip = inputs[i];
+    if (!ip) continue;
+
+    if (!isValidIPv4(ip)) {
+      errors.push(`WLC #${i+1} のIPv4アドレスが不正です: ${ip}`);
+    } else {
+      validIPs.push(ip);
+    }
+  }
+
+  if (errors.length > 0) {
+    errorDiv.innerText = errors.join('\n');
+    copyValue = '';
+    return;
+  }
+
+  // Catalyst Mode (WLC Mode) はWLCのIPv4アドレスが1つ以上必須
+  // Meraki ModeはWLCのIPv4アドレスなしでも生成可能
+  if (validIPs.length === 0 && mode === "02") {
+    errorDiv.innerText = 'Catalyst Mode (WLC Mode) では、少なくとも1つのWLCのIPv4アドレスを入力してください';
+    copyValue = '';
+    return;
+  }
+
+  const result = generateOption43(validIPs, mode);
+  copyValue = result.raw;
+
+  const classes = ['c-wlc1','c-wlc2','c-wlc3'];
+  let coloredValue = '';
+
+  result.parts.forEach((part, i) => {
+    coloredValue += `<span class="${classes[i]}">${part}</span>`;
+  });
+
+  output.innerHTML =
+    `<span class="c-type">f3</span>` +
+    `<span class="c-length">${result.length}</span>` +
+    `${coloredValue}` +
+    `<span class="c-mode">${result.mode}</span>`;
+
+}
+
+async function copyResult() {
+  if (!copyValue) return;
+
+  const msg = document.getElementById('copyMsg');
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(copyValue);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = copyValue;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+
+    msg.innerText = 'Copied!';
+    setTimeout(() => {
+      msg.innerText = '';
+    }, 3000);
+  } catch (e) {
+    msg.innerText = 'Copy failed. 生成値を手動でコピーしてください。';
+  }
+}
+
+function clearInputs() {
+  document.getElementById('wlc1').value = '';
+  document.getElementById('wlc2').value = '';
+  document.getElementById('wlc3').value = '';
+
+  document.getElementById('hex1').innerText = '';
+  document.getElementById('hex2').innerText = '';
+  document.getElementById('hex3').innerText = '';
+
+  document.getElementById('error').innerText = '';
+  document.getElementById('output').innerText = '';
+  document.getElementById('copyMsg').innerText = '';
+
+  copyValue = '';
+}
+
+document.getElementById('mode').addEventListener('change', updateModePreview);
+
+window.onload = function() {
+  updateHex(1);
+  updateHex(2);
+  updateHex(3);
+  updateModePreview();
+  run();
+};
+</script>
+
+<div class="section" style="margin-top:40px; border-top:1px solid #ccc; padding-top:16px; font-size:14px; color:#555;">
+  <div><b>本ツールの最新版</b></div>
+  <div style="margin-top:6px;">
+    GitHub Repository:
+    <a href="https://github.com/myhomenwlab/Cisco_DHCP-Option-43_Generator_Wi-Fi7-FOM" target="_blank">
+      https://github.com/myhomenwlab/Cisco_DHCP-Option-43_Generator_Wi-Fi7-FOM
+    </a>
+  </div>
+</div>
+
+<div class="section" style="font-size:14px; color:#555;">
+  <div><b>関連ドキュメント</b></div>
+  <div style="margin-top:6px;">
+    <a href="https://www.cisco.com/c/en/us/support/docs/wireless-mobility/wireless-lan-wlan/97066-dhcp-option-43-00.html" target="_blank">
+      Configure DHCP OPTION 43 for Lightweight Access Points - Cisco
+    </a>
+  </div>
+</div>
+
+</body>
+</html>
